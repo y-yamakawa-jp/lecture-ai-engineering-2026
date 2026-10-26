@@ -31,19 +31,82 @@ def ask(question: str) -> str:
 
     return response.text
 
+def chat_loop() -> None:
+    client = genai.Client(api_key=get_api_key())
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="素のLLMに質問する")
-    parser.add_argument("question", nargs="?", default=DEFAULT_QUESTION)
-    args = parser.parse_args()
+    # 会話履歴を保持するチャットを作成
+    chat = client.chats.create(model=MODEL)
 
     print(f"[model] {MODEL}")
+    print("会話モード開始（exitで終了）")
+
+    while True:
+        # ユーザーから質問を受け取る
+        try:
+            question = input("\nYou: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n会話を終了します。")
+            break
+
+        if question.lower() in ("exit", "quit"):
+            print("会話を終了します。")
+            break
+
+        if not question:
+            continue
+
+        try:
+            # 過去の会話履歴を踏まえて回答
+            response = chat.send_message(question)
+
+            print(f"\nGemini: {response.text}")
+
+            # トークン数を表示
+            usage = response.usage_metadata
+            if usage:
+                print(
+                    f"[Tokens] input: {usage.prompt_token_count}, "
+                    f"output: {usage.candidates_token_count}"
+                )
+
+        except errors.APIError as e:
+            print(api_error_message(e.code, e.message))
+
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="LLMに質問する")
+
+    parser.add_argument(
+        "question",
+        nargs="?",
+        default=DEFAULT_QUESTION
+    )
+
+    # 会話モードのオプションを追加
+    parser.add_argument(
+        "--chat",
+        action="store_true",
+        help="会話履歴を保持して連続質問する"
+    )
+
+    args = parser.parse_args()
+
+    # --chat が指定されたら会話モードへ
+    if args.chat:
+        chat_loop()
+        return
+
+    # 以下は従来の一問一答モード
+    print(f"[model] {MODEL}")
     print(f"[質問] {args.question}\n")
+
     try:
         print(ask(args.question))
     except errors.APIError as e:
         print(api_error_message(e.code, e.message))
         raise SystemExit(1)
+
 
 
 if __name__ == "__main__":
