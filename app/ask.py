@@ -11,6 +11,7 @@
 """
 
 import argparse
+import time
 
 from google import genai
 from google.genai import errors
@@ -23,11 +24,14 @@ DEFAULT_QUESTION = "AIE2026の講座の宿題にある「3レベル」とは何�
 
 def ask(question: str) -> str:
     client = genai.Client(api_key=get_api_key())
+    started_at = time.perf_counter()
     response = client.models.generate_content(model=MODEL, contents=question)
+    elapsed_seconds = time.perf_counter() - started_at
 
     usage = response.usage_metadata
     print(f"[入力トークン] {usage.prompt_token_count if usage else 0}")
     print(f"[出力トークン] {usage.candidates_token_count if usage else 0}")
+    print(f"[応答時間] {elapsed_seconds:.2f}秒")
 
     return response.text
 
@@ -57,7 +61,9 @@ def chat_loop() -> None:
 
         try:
             # 過去の会話履歴を踏まえて回答
+            started_at = time.perf_counter()
             response = chat.send_message(question)
+            elapsed_seconds = time.perf_counter() - started_at
 
             print(f"\nGemini: {response.text}")
 
@@ -68,6 +74,7 @@ def chat_loop() -> None:
                     f"[Tokens] input: {usage.prompt_token_count}, "
                     f"output: {usage.candidates_token_count}"
                 )
+            print(f"[応答時間] {elapsed_seconds:.2f}秒")
 
         except errors.APIError as e:
             print(api_error_message(e.code, e.message))
