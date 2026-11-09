@@ -13,7 +13,10 @@
 
 ## 宿題
 
-- 取り組んだレベル：基礎 / 実装 / 発展
-- やったこと：
-- 結果：
-- 気づき・疑問：
+- 取り組んだレベル：基礎
+- やったこと1：app/agent.py の INSTRUCTIONS から「用語や講座に固有のことを答える前に、必ず search_glossary で用語集を確認する。」という指示を削除し、同じ質問「LoRAとQLoRAの違いは？」を実行して比較した。
+- 結果1：変更前後ともに search_glossary が2回呼び出され、引数も LoRA と QLoRA で同じだった。requests=2、tool_calls=2 も変わらず、回答内容にも大きな違いはなかった。
+- 気づき・疑問：INSTRUCTIONSの指示を削除しても動作が変わらなかった。これは search_glossary のdocstringに「答える前に使うこと」という説明が残っているためだろうか。
+- やったこと2：やったこと1に加えて、search_glossaryのdocstringを"""講座の用語集から用語を検索し、定義を返す。"""に変更し、「答える前に使うこと」という説明を削除。同じ質問「LoRAとQLoRAの違いは？」を実行して比較した。
+- 結果2：変更前後ともに search_glossary が2回呼び出され、引数も LoRA と QLoRA で同じだった。requests=2、tool_calls=2 も変わらず、回答内容にも大きな違いはなかった。
+- 気づき・疑問：LLMが自動的に使用の必要性を判断し、使用したことになるだろう。docstringやINSTRUCTIONSとLLMの判断のどちらが優先されるのかは気になるところだ。
