@@ -11,6 +11,7 @@
 """
 
 import argparse
+import time
 
 from google import genai
 from google.genai import errors
@@ -23,26 +24,96 @@ DEFAULT_QUESTION = "AIE2026の講座の宿題にある「3レベル」とは何�
 
 def ask(question: str) -> str:
     client = genai.Client(api_key=get_api_key())
+    started_at = time.perf_counter()
     response = client.models.generate_content(model=MODEL, contents=question)
+    elapsed_seconds = time.perf_counter() - started_at
 
-    # TODO(第1回 演習): response.usage_metadata から
-    #   入力トークン数と出力トークン数を表示してみよう（Copilotに頼んでよい）
+    usage = response.usage_metadata
+    print(f"[入力トークン] {usage.prompt_token_count if usage else 0}")
+    print(f"[出力トークン] {usage.candidates_token_count if usage else 0}")
+    print(f"[応答時間] {elapsed_seconds:.2f}秒")
 
     return response.text
 
+def chat_loop() -> None:
+    client = genai.Client(api_key=get_api_key())
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="素のLLMに質問する")
-    parser.add_argument("question", nargs="?", default=DEFAULT_QUESTION)
-    args = parser.parse_args()
+    # 会話履歴を保持するチャットを作成
+    chat = client.chats.create(model=MODEL)
 
     print(f"[model] {MODEL}")
+    print("会話モード開始（exitで終了）")
+
+    while True:
+        # ユーザーから質問を受け取る
+        try:
+            question = input("\nYou: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n会話を終了します。")
+            break
+
+        if question.lower() in ("exit", "quit"):
+            print("会話を終了します。")
+            break
+
+        if not question:
+            continue
+
+        try:
+            # 過去の会話履歴を踏まえて回答
+            started_at = time.perf_counter()
+            response = chat.send_message(question)
+            elapsed_seconds = time.perf_counter() - started_at
+
+            print(f"\nGemini: {response.text}")
+
+            # トークン数を表示
+            usage = response.usage_metadata
+            if usage:
+                print(
+                    f"[Tokens] input: {usage.prompt_token_count}, "
+                    f"output: {usage.candidates_token_count}"
+                )
+            print(f"[応答時間] {elapsed_seconds:.2f}秒")
+
+        except errors.APIError as e:
+            print(api_error_message(e.code, e.message))
+
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="LLMに質問する")
+
+    parser.add_argument(
+        "question",
+        nargs="?",
+        default=DEFAULT_QUESTION
+    )
+
+    # 会話モードのオプションを追加
+    parser.add_argument(
+        "--chat",
+        action="store_true",
+        help="会話履歴を保持して連続質問する"
+    )
+
+    args = parser.parse_args()
+
+    # --chat が指定されたら会話モードへ
+    if args.chat:
+        chat_loop()
+        return
+
+    # 以下は従来の一問一答モード
+    print(f"[model] {MODEL}")
     print(f"[質問] {args.question}\n")
+
     try:
         print(ask(args.question))
     except errors.APIError as e:
         print(api_error_message(e.code, e.message))
         raise SystemExit(1)
+
 
 
 if __name__ == "__main__":
